@@ -1,0 +1,55 @@
+Dockerfile
+
+FROM:  基础镜像
+	Syntax:
+	    FROM centos:7.6
+		FROM centos@0c37ce590ed8   (镜像名加镜像ID) 此方法较为安全
+		
+Run:   构建镜像过程中过程中运行的一些系统bash命令
+	Syntax:
+	    Run mv /etc/yum.repo.d/*.repo /tmp && yum inastall -y openssh-server 
+        Run ["mysqld", "--initialize-insecure", "--user=mysqlq", "--basedir=/usr/local/mysql", "--datadir=/data/mysql/data"  ]
+        程序命令写法
+
+EXPOSE 22  向外暴露的服务端口，多个服务写多行
+EXPOSE 80
+
+CMD:   使用镜像启动容器时运行的命令
+    Syntax:
+	    CMD ["/usr/sbin/sshd", "-D"]    等同于docker run --name=xx centos@0c37ce590ed8  /usr/sbin/sshd -D
+
+COPY:  把宿主机的文件拷贝到容器内,宿主机文件必须与Dockerfile在同一目录下
+    Syntax:
+	    COPY index.php /var/www/html/
+		COPY app /var/www/html/app/      如果拷贝的是app目录到容器内， 必须在容器路径加上app目录名称，这样才能把app目录以及目录下子文件全部拷贝到容器
+
+ADD:   与COPY命令一样,还可以把压缩包复制到容器目录并解压. 还可以使用外部URL
+    Syntax:
+	    ADD bbs.tar.gz /var/www/html/          把压缩包(只能是tar相关的包)复制到容器目录,并解压到此目录
+        ADD "http://baidu.com/bbs.rpm" /tmp/   访问url地址下载文件到容器,但是不会自动解压(包括tar相关的包)
+
+VOLUME:  挂载数据卷
+	Syntax:
+	    VOLUME ["/var/www/html","/data/mysql/data"]   把容器内的data目录挂载到宿主机html目录下
+
+WORKDIR:  容器的工作目录
+	Syntax:
+	    WORKDIR /home/wwwroot   每次进入容器默认进入的路径
+
+ENV:    声明变量
+    Syntax:
+	    ENV PATH /var/www/html/   定义变量，并可被Dockerfile文件中后续的指令（ENV，ADD，COPY等）调用
+
+ENTRYPOINT:  类似于CMD指令，都是运行于基于Dockerfile文件构建出的新映像文件启动一个容器时。区别就是CMD可被docker run后面的参数命令所替换，但是ENTRYPOINT不会，除非docker run加上--entrypoint选项。
+
+
+CMD  
+    具体写法可先pull镜像， 再通过docker inspect nginx  CMD写法
+
+
+
+镜像打包：
+	docker commit -m "test" container_id new_image  将正在运行的容器打包成新的镜像
+	docker save new_image >/opt/file.tgz     将新镜像打包成本地文件
+镜像导入：
+	docker load -i /opt/file.tgz  将新的镜像文件导入到本地 

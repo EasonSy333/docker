@@ -1,0 +1,13 @@
+FROM alpine:3.7
+RUN apk add nginx && mkdir /run/nginx/
+ENTRYPOINT [ "nginx","-g","daemon off;" ]
+
+
+
+
+docker build  -t nginx_alpine:v1
+
+docker run -p 80:80 -d nginx_alpine:v1
+
+
+docker exec -it (镜像名) sh

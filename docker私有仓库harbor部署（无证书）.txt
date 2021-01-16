@@ -1,0 +1,55 @@
+下载最新版 `Docker Compose`
+curl -L "https://github.com/docker/compose/releases/download/1.22.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+
+对二进制文件应用可执行权限
+chmod +x /usr/local/bin/docker-compose
+
+ 测试是否安装成功
+docker-compose --version
+
+
+下载离线安装包
+wget https://storage.googleapis.com/harbor-releases/release-1.6.0/harbor-offline-installer-v1.6.0.tgz
+
+解压缩包
+tar xvf harbor-offline-installer-v1.6.0.tgz
+
+进去 vim harbor/harbor.cfg 修改文件相关配置。
+
+配置设置完成运行安装脚本，⚠️ 注意如果你事先部署了 nginx 需要停掉，避免端口冲突
+
+./install.sh
+
+
+通过 http://192.168.112.129:80 就可以访问 Harbour 服务了
+
+登录仓库
+[root@localhost /opt/harbor]# docker login 192.168.112.129:80
+Username: admin
+Password: 
+Error response from daemon: Get https://192.168.112.129:80/v2/: http: server gave HTTP response to HTTPS client
+这是由于默认 docker registry 使用的是 https, 而目前的 Harbor 使用的是 http, 解决方法如下
+
+查找 docker.service 所在目录
+[root@localhost harbor]# find / -name docker.service -type f
+/usr/lib/systemd/system/docker.service
+增加 --insecure-registry 192.168.112.129:80
+[root@localhost harbor]# vim /usr/lib/systemd/system/docker.service
+先注释掉原文中的ExecStart，不然重启docker会报错
+ExecStart=/usr/bin/dockerd --insecure-registry 192.168.112.129:80 -H fd:// --containerd=/run/containerd/containerd.sock
+# 重新加载配置、重启docker
+systemctl daemon-reload
+systemctl restart docker
+再次登录就可以了
+docker login 192.168.112.129:80
+
+
+镜像推送，拉取
+docker login 192.168.188.222:8070
+# 查看 cat ~/.docker/config.json
+# 镜像打包时候需要按一定规则 tag (仓库地址/项目名称/镜像名称:版本标签)
+docker pull nginx
+docker tag nginx:latest 192.168.112.129:80/test/nginx:latest
+docker push 192.168.112.129:80/test/nginx:v1
+docker rmi 192.168.112.129:80/test/nginx:v1
+docker pull 192.168.112.129:80/test/nginx:v1

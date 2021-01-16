@@ -1,0 +1,10 @@
+FROM node:14-alpine
+
+RUN mkdir /home/app
+WORKDIR /home/app
+CMD ["sh" "/start.sh"]
+
+start.sh 
+内容
+npm install md5
+node app.js
