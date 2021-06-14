@@ -1,0 +1,31 @@
+/data/dockerfile_conf/test-demo/Dockerfile
+
+jar包 用jdk环境
+
+FROM 192.168.153.104/library/java8:1.0
+#定义时区参数
+ENV TZ=Asia/Shanghai
+#设置时区
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo '$TZ' > /etc/timezone
+#安装必要应用
+RUN yum -y install kde-l10n-Chinese glibc-common
+#设置编码
+RUN localedef -c -f UTF-8 -i zh_CN zh_CN.utf8
+#设置环境变量
+ENV LC_ALL zh_CN.utf8
+ADD target/ly-simple-tomcat-0.0.1-SNAPSHOT.war .
+EXPOSE 8080
+ENTRYPOINT [ "java", "-jar", "ly-simple-tomcat-0.0.1-SNAPSHOT.war" ]
+
+
+war包 用tomcat环境
+FROM 192.168.153.104/library/tomcat:v1
+ENV LANG C.UTF-8 
+ENV PATH $PATH:/usr/local/tomcat/bin
+ENV TZ=Asia/Shanghai
+ENV JAVA_OPTS "-Djava.awt.headless=true"
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+RUN rm -rf /usr/local/tomcat/webapps/*
+COPY target/ly-simple-tomcat-0.0.1-SNAPSHOT.war /usr/local/tomcat/webapps/ROOT.war
+WORKDIR /usr/local/tomcat
+CMD ["catalina.sh", "run"]
