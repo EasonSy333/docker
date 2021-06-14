@@ -1,0 +1,40 @@
+# 这里是镜像的父镜像，就是说我们是在centos镜像基础上构建tomcat镜像
+FROM centos
+
+# 安装vim，RUN 命令，可以执行linux命令
+RUN yum install -y vim
+
+# COPY命令，可以把当前目录下面文件复制到docker里面指定路径,c.txt为测试内容为空
+COPY c.txt /usr/local/
+
+# ADD = COPY + 解压
+# ADD命令不仅复制进docker了，还包解压的
+ADD apache-tomcat-9.0.46.tar.gz /usr/local/
+ADD jdk-8u291-linux-x64.tar.gz /usr/local/
+
+# 设置环境变量
+ENV MYPATH /usr/local/
+
+# 指定登陆的落脚点，使用了上面定义的环境变量
+WORKDIR $MYPATH
+
+# java需要的一些环境变量配置
+ENV JAVA_HOME /usr/local/jdk1.8.0_291
+ENV CLASSPATH $JAVA_HOME/lib/dt.jar:$JAVA_HOME/lib/tools.jar
+# tomcat需要的一些环境变量的配置
+ENV CATALINA_HOME /usr/local/apache-tomcat-9.0.46
+ENV CATALINA_BASH /usr/local/apache-tomcat-9.0.46
+# 都添加到path下,能够在容器内使用tomcat命令
+ENV PATH $PATH:JAVA_HOME/bin:$CATALINA_HOME/lib:$CATALINA_HOME/bin
+
+# 暴露8080端口
+EXPOSE 8080
+
+#最后执行命令，运行tomcat命令
+CMD ["/usr/local/apache-tomcat-9.0.46/bin/catalina.sh","run"]
+
+
+
+参考地址:
+https://m.vlambda.com/wz_7iEWYibvTrO.html
+https://segmentfault.com/a/1190000040015949?utm_source=sf-similar-article
