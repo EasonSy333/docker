@@ -1,0 +1,259 @@
+# 这里是镜像的父镜像，就是说我们是在centos镜像基础上构建tomcat镜像
+FROM centos
+
+# 安装vim，RUN 命令，可以执行linux命令
+RUN yum install -y vim
+
+# COPY命令，可以把当前目录下面文件复制到docker里面指定路径,c.txt为测试内容为空
+COPY c.txt /usr/local/
+
+# ADD = COPY + 解压
+# ADD命令不仅复制进docker了，还包解压的
+ADD apache-tomcat-9.0.46.tar.gz /usr/local/
+ADD jdk-8u291-linux-x64.tar.gz /usr/local/
+
+# 设置环境变量
+ENV MYPATH /usr/local/
+
+# 指定登陆的落脚点，使用了上面定义的环境变量
+WORKDIR $MYPATH
+
+# java需要的一些环境变量配置
+ENV JAVA_HOME /usr/local/jdk1.8.0_291
+ENV CLASSPATH $JAVA_HOME/lib/dt.jar:$JAVA_HOME/lib/tools.jar
+# tomcat需要的一些环境变量的配置
+ENV CATALINA_HOME /usr/local/apache-tomcat-9.0.46
+ENV CATALINA_BASH /usr/local/apache-tomcat-9.0.46
+# 都添加到path下,能够在容器内使用tomcat命令
+ENV PATH $PATH:JAVA_HOME/bin:$CATALINA_HOME/lib:$CATALINA_HOME/bin
+
+# 暴露8080端口
+EXPOSE 8080
+
+#最后执行命令，运行tomcat命令
+CMD ["/usr/local/apache-tomcat-9.0.46/bin/catalina.sh","run"]
+
+
+
+参考地址:
+https://m.vlambda.com/wz_7iEWYibvTrO.html
+https://segmentfault.com/a/1190000040015949?utm_source=sf-similar-article
+
+
+
+日志匹配规则调试
+https://grokdebug.herokuapp.com/
+ELK大全
+https://www.bilibili.com/video/BV1of4y1R7ST?p=27&spm_id_from=pageDriver
+ELK官网
+https://www.elastic.co/guide/en/beats/filebeat/current/kafka-output.html
+kafka官网
+https://kafka.apache.org/downloads
+zookeeper官网
+https://zookeeper.apache.org/releases.html
+
+
+
+192.168.212.0   子网IP
+255.255.255.0   子网掩码  
+192.168.212.2   网关
+
+
+
+cat > /etc/hosts  << EOF
+192.168.153.102   master
+192.168.153.103   node1
+192.168.153.104   node2
+EOF
+
+
+yum install -y kubelet-1.17.0 kubeadm-1.17.0 kubectl-1.17.0
+
+
+
+kubeadm init --kubernetes-version=v1.21.1 --apiserver-advertise-address=192.168.212.101 --image-repository registry.aliyuncs.com/google_containers --service-cidr=10.1.0.0/16 --pod-network-cidr=10.244.0.0/16 --v=5 --ignore-preflight-errors=all
+
+	
+kubeadm join 192.168.212.101:6443 --token oukjs7.9aj7f3tolqjq52wz \
+	--discovery-token-ca-cert-hash sha256:a1b8a8aeed023ab16e97f52c4a2891b406ae7a447569c4f674a71efca8b86402
+
+
+
+https://github.com/flannel-io/flannel/blob/bdafb84163dc62c5b3b160256a1a088cd231631e/Documentation/kube-flannel.yml
+
+
+
+wget https://raw.githubusercontent.com/kubernetes/dashboard/v2.0.0-rc2/aio/deploy/recommended.yaml
+
+
+k8s解决 ImagePullBackOff 和ErrImagePull 问题
+kubectl get pods coredns-545d6fc579-4jw9w -n kube-system -o yaml | grep image:
+
+手动拉取镜像试下
+或者从官方拉取镜像, 然后tag一下镜像
+
+
+创建deployment yml模板
+kubectl create deployment java-demo --image=192.168.212.104/library/java-demo --dry-run -o yaml >java-demo.yml
+创建service yml模板
+kubectl expose deployment java-demo --port=80  --target-port=8080  --type=NodePort  -o yaml --dry-run >svc.yml
+
+
+
+以Volume形式创建configmap
+vi redis.properties
+redis.host=127.0.0.1
+redis.port=6379
+redis.password=123456
+
+[root@master ~]# kubectl create configmap redis-config --from-file=redis.properties
+
+vi cm.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mypod
+spec:
+  containers:
+    - name: busybox
+      image: busybox
+      command: [ "/bin/sh","-c","cat /etc/config/redis.properties" ]
+      volumeMounts:
+      - name: config-volume
+        mountPath: /etc/config
+  volumes:
+    - name: config-volume
+      configMap:
+         name: redis-config
+  restartPolicy: Never
+  
+[root@master ~]# kubectl apply -f cm.yml
+
+[root@master ~]# kubectl get pods
+NAME                        READY   STATUS      RESTARTS   AGE
+java-demo-8f66b4d79-fkgk6   1/1     Running     0          19h
+java-demo-8f66b4d79-mbkmt   1/1     Running     0          19h
+mypod                       0/1     Completed   0          4m27s
+
+
+以变量形式创建configmap
+vi mycongigmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: myconfig
+  namespace: default
+data:
+  special.level: info
+  special.type: hello
+
+[root@master ~]# kubectl create -f myconfig.yaml
+
+vi config-var.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mypod
+spec:
+  containers:
+    - name: busybox
+      image: busybox
+      command: [ "/bin/sh","-c","echo $(LEVEL) $(TYPE)" ]
+      env:
+        - name: LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: myconfig
+              key: special.level
+        - name: TYPE
+          valueFrom:
+            configMapKeyRef:
+              name: myconfig
+              key: special.type
+  restartPolicy: Never
+
+[root@master ~]# kubectl create -f config-var.yaml
+
+[root@master ~]# kubectl get pods
+NAME                        READY   STATUS      RESTARTS   AGE
+java-demo-8f66b4d79-fkgk6   1/1     Running     0          19h
+java-demo-8f66b4d79-mbkmt   1/1     Running     0          19h
+mypod                       0/1     Completed   0          48s
+[root@master ~]# kubectl logs mypod
+info hello
+
+
+创建ingress规则
+vi ingress.yaml
+apiVersion: v1
+kind: Ingress
+metadata:
+  name: example-ingress  #(ingress的名字)
+spec:
+  rules:
+  - host: abc.com  #(需要绑定的访问域名)
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: web  #(需要做ingress规则的service名字)
+          servicePort: 80   #(nginx的默认端口,tomcat8080)
+		  
+
+helm安装
+下载二进制包,解压.  把helm文件移动到/usr/bin即可
+添加helm存储库
+helm repo add stable https://charts.helm.sh/stable
+helm repo add stable http://mirror.azure.cn/kubernets/charts     #(添加helm存储库,微软)
+helm repo add aliyun https://kubernetes.oss-cn-hangzhou.aliyuncs.com/charts    #(添加helm存储库,阿里云)
+helm repo update
+
+查看helm的存储库配置
+helm repo list
+helm search repo stable
+
+删除helm的存储库配置
+helm repo remove aliyun
+
+自己创建chart
+1,helm create mychart
+
+2,在templates文件自己创建deployment.yaml service.yaml ingress.yaml文件
+
+3,应用mychart
+helm install web1 mychart 
+
+4,应用版本升级
+helm upgrade web1 mychart
+
+在values.yaml定义变量和值
+replicas: 1
+image: nginx
+tag: 1.16
+label: nginx
+port: 80
+
+在templates/deployment.yaml,service.yaml,ingress.yaml引用变量
+{{ .Values.变量名称(replicas,image,tag,label,port)}}
+{{ .Release.Name}}-deploy
+{{ .Release.Name}}-svc
+
+helm  install --dry-run web2 mychart   测试
+
+
+---------------------------------------------------------
+grafana模板 8919  315
+Prometheus官网
+https://prometheus.io/docs/introduction/first_steps/
+
+
+Prometheus 与 Grafana 的仪表添加与查询语句 *****
+https://www.bilibili.com/video/BV1oz4y1S7YH?from=search&seid=10266766952309946620
+
+Prometheus 视频专栏 *****
+https://space.bilibili.com/471409569/video
+
+Prometheus文档专栏* *****
+https://space.bilibili.com/471409569/article
+
+
